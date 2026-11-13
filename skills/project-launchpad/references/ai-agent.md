@@ -18,7 +18,9 @@ The user decides what's `ai-ready`. New-feature ideas from the agent go into iss
 - **Minimal permissions**: `contents: write`, `pull-requests: write`, `issues: write`, nothing else.
 - **Trigger only on `schedule` and `workflow_dispatch`.** Don't run this workflow on `pull_request_target`, issue comments, or anything strangers can trigger in a public repo: issue/PR text is untrusted input and could contain prompt injection aimed at the API key and write access.
 - **Only act on issues labeled by the owner.** In public repos, anyone can open issues; a label only maintainers can apply (`ai-ready`) is the gate.
-- **API key in secrets** (`ANTHROPIC_API_KEY` or `GEMINI_API_KEY`); the user adds it themselves in repo settings or with `gh secret set` (they type it).
+- **Credentials in secrets**, added by the user themselves in repo settings or with `gh secret set` (they type it, never paste it in chat). Options:
+  - Claude: `ANTHROPIC_API_KEY` (pay per use), or `CLAUDE_CODE_OAUTH_TOKEN` generated with `claude setup-token` to run on a Claude Pro/Max subscription.
+  - Gemini: `GEMINI_API_KEY` **with billing enabled** on the Google project. Consumer Google AI Pro/Ultra subscriptions do not work here (see the Gemini section).
 - **PRs opened with the default `GITHUB_TOKEN` don't trigger other workflows**, so CI won't run on the agent's PRs. Fix with one of: the official Claude GitHub App (via `/install-github-app` in Claude Code), a GitHub App token, or a fine-grained PAT stored as a secret. Explain the trade-off to the user.
 
 ## Claude template (anthropics/claude-code-action@v1)
@@ -49,6 +51,8 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # or, to use a Claude Pro/Max subscription instead of an API key:
+          # claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # github_token: ${{ steps.app-token.outputs.token }}  # so CI runs on its PRs
           prompt: |
             You are the daily maintenance agent for ${{ github.repository }}.
@@ -67,6 +71,8 @@ jobs:
 ```
 
 ## Gemini template (google-github-actions/run-gemini-cli)
+
+**Auth caveat (as of late 2026):** since June 18, 2026, Gemini CLI no longer serves requests for Google AI Pro/Ultra subscriptions or the free "Sign in with Google" tier, and the free consumer Gemini Code Assist GitHub review app was shut down on July 17, 2026. A consumer subscription also doesn't give an API key paid quota. So in CI, Gemini needs a `GEMINI_API_KEY` from a Google project **with billing enabled** (pay per token; tell the user to set a budget cap), or Vertex AI / a Gemini Code Assist Standard/Enterprise license. Google's newer route is an Antigravity SDK-based GitHub Action, which also runs on a Google Cloud account. Don't suggest a self-hosted runner logged into a personal subscription for public repos: fork PRs could run untrusted code on the user's machine. Re-check Google's docs, as this has changed recently.
 
 Same workflow shell (triggers, permissions, concurrency, checkout, runtime setup), with the agent step swapped:
 
